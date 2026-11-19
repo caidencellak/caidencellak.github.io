@@ -61,20 +61,21 @@ function toast(msg) {
 const nextVerdict = () => verdicts[vi++ % verdicts.length];
 
 /* ================= INTRO ================= */
-function seenIntro() { try { return sessionStorage.getItem('cc-intro') === '1'; } catch { return false; } }
-function markIntro() { try { sessionStorage.setItem('cc-intro', '1'); } catch {} }
+// the intro plays on every visit, so always start from the top of the page
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+scrollTo(0, 0);
 
 async function runIntro() {
   const intro = $('#intro');
   let done = false;
   const finish = () => {
-    if (done) return; done = true; markIntro();
+    if (done) return; done = true;
     intro.classList.add('out');
     document.body.classList.remove('loading');
     setTimeout(startHero, 250);
     setTimeout(() => intro.remove(), 1100);
   };
-  if (reduced || seenIntro()) { intro.remove(); document.body.classList.remove('loading'); startHero(); return; }
+  if (reduced) { intro.remove(); document.body.classList.remove('loading'); startHero(); return; }
   $('#intro-skip').addEventListener('click', finish);
   addEventListener('keydown', function k(e) { if (e.key === 'Enter' || e.key === 'Escape') { finish(); removeEventListener('keydown', k); } });
 
