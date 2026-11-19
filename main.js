@@ -125,12 +125,17 @@ function startHero() {
   if (!reduced) requestAnimationFrame(frame);
 })();
 
+// the whole page trembles slightly when the gavel lands
+function shakePage() {
+  if (reduced) return;
+  $('main').animate([
+    { transform: 'translate(0,0)' }, { transform: 'translate(-3px,2px)' }, { transform: 'translate(3px,-2px)' },
+    { transform: 'translate(-2px,1px)' }, { transform: 'translate(1px,-1px)' }, { transform: 'translate(0,0)' }],
+    { duration: 380, easing: 'ease-out' });
+}
+
 $('#hero-gavel').addEventListener('click', (e) => {
-  strike(e.currentTarget, { onImpact: () => {
-    toast(nextVerdict());
-    const st = $('.portrait-stamp'); st.classList.remove('on'); void st.offsetWidth; st.classList.add('on');
-    const p = $('#portrait'); p.classList.remove('shake'); void p.offsetWidth; p.classList.add('shake');
-  } });
+  strike(e.currentTarget, { onImpact: () => { toast(nextVerdict()); shakePage(); } });
 });
 
 /* ================= MARQUEE ================= */
@@ -199,6 +204,7 @@ function countUp(el) {
   rig.addEventListener('click', () => {
     strike(rig, { onImpact: () => {
       toast(nextVerdict());
+      shakePage();
       if (reduced) return;
       cards.filter((c) => c.classList.contains('landed')).forEach((c, i) =>
         c.animate([{ transform: 'none' }, { transform: `translateY(-8px) rotate(${i % 2 ? 1 : -1}deg)` }, { transform: 'none' }],
