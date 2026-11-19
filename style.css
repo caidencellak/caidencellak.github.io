@@ -129,7 +129,7 @@ button.gavel-rig{cursor:pointer}
   background:linear-gradient(180deg,#f3dc9e,#c9a35a 55%,#a7843d);box-shadow:0 8px 16px -8px rgba(29,36,51,.5),inset 0 1px 0 rgba(255,255,255,.6),inset 0 -1px 0 rgba(0,0,0,.2);
   color:#2a1d08;opacity:0;transform:translateY(10px)}
 .hero-ready .plaque{opacity:1;transform:none;transition:opacity .8s .9s,transform .8s var(--ease) .9s}
-.plaque span{display:block;font:700 19px/1.1 var(--serif);letter-spacing:.08em;text-transform:uppercase}
+.plaque span{display:block;font:700 16px/1.2 var(--serif);letter-spacing:.12em;text-transform:uppercase}
 .plaque i{display:block;font:italic 500 14px var(--serif);opacity:.8}
 .gavel-rig--hero{position:absolute;left:-60px;bottom:40px;z-index:4;font-size:8.5px}
 .hero-hint{position:absolute;left:-10px;bottom:6px;margin:0;font:italic 500 16px var(--serif);color:var(--faint)}
@@ -139,7 +139,7 @@ button.gavel-rig{cursor:pointer}
   .hero-art{order:-1;padding:0}
   .portrait{width:min(62vw,260px)}
   .portrait::before{inset:-11px -11px 22px}
-  .plaque span{font-size:15px}.plaque i{font-size:12px}
+  .plaque span{font-size:13px}
   .gavel-rig--hero{left:max(4px,calc(50% - min(31vw,130px) - 72px));bottom:16px;font-size:5.5px}
   .hero-hint{display:none}
 }
