@@ -5,48 +5,25 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /* ================= GAVEL ================= */
-const REST = 26, LIFT = 38, HIT = -3;
-// a short wooden "knock", synthesised (only ever played after a click)
-let actx;
-function knock(vol = 0.5) {
-  try {
-    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    const t = actx.currentTime, len = 0.12;
-    const buf = actx.createBuffer(1, actx.sampleRate * len, actx.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 6);
-    const n = actx.createBufferSource(); n.buffer = buf;
-    const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 1.4;
-    const g1 = actx.createGain(); g1.gain.value = vol;
-    n.connect(bp).connect(g1).connect(actx.destination); n.start(t);
-    const o = actx.createOscillator(); o.type = 'sine';
-    o.frequency.setValueAtTime(190, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.15);
-    const g2 = actx.createGain(); g2.gain.setValueAtTime(vol * 0.9, t); g2.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-    o.connect(g2).connect(actx.destination); o.start(t); o.stop(t + 0.2);
-  } catch {}
-}
-function strike(rig, { onImpact, speed = 1, sound = false } = {}) {
-  const g = $('.gavel:not(.ghost)', rig), ghosts = $$('.gavel.ghost', rig);
+const REST = 26, LIFT = 36, HIT = -3;
+function strike(rig, { onImpact, speed = 1 } = {}) {
+  const g = $('.gavel', rig);
   if (rig._busy) return rig._busy;
   rig._busy = new Promise((resolve) => {
     if (reduced) { onImpact && onImpact(); impact(rig); rig._busy = null; return resolve(); }
     const a1 = g.animate([{ transform: `rotate(${REST}deg)` }, { transform: `rotate(${LIFT}deg)` }],
-      { duration: 170 / speed, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' });
+      { duration: 160 / speed, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' });
     a1.onfinish = () => {
-      const dur = 110 / speed;
-      ghosts.forEach((gh, i) => gh.animate(
-        [{ transform: `rotate(${LIFT}deg)`, opacity: 0 }, { transform: `rotate(${(LIFT + HIT) / 2}deg)`, opacity: 0.28 - i * 0.12 }, { transform: `rotate(${HIT}deg)`, opacity: 0 }],
-        { duration: dur + 40, delay: 18 * (i + 1), easing: 'cubic-bezier(.6,0,1,.6)' }));
       const a2 = g.animate([{ transform: `rotate(${LIFT}deg)` }, { transform: `rotate(${HIT}deg)` }],
-        { duration: dur, easing: 'cubic-bezier(.6,0,1,.6)', fill: 'forwards' });
+        { duration: 110 / speed, easing: 'cubic-bezier(.6,0,1,.6)', fill: 'forwards' });
       a2.onfinish = () => {
-        if (sound) knock();
         impact(rig);
         onImpact && onImpact();
         const a3 = g.animate([
           { transform: `rotate(${HIT}deg)` }, { transform: `rotate(${HIT + 9}deg)`, offset: .3 },
           { transform: `rotate(${HIT + 4}deg)`, offset: .55 }, { transform: `rotate(${REST}deg)` }],
           { duration: 520 / speed, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'forwards' });
-        a3.onfinish = () => { a1.cancel(); a2.cancel(); a3.cancel(); rig._busy = null; resolve(); };
+        a3.onfinish = () => { rig._busy = null; resolve(); };
       };
     };
   });
@@ -148,7 +125,7 @@ function startHero() {
 })();
 
 $('#hero-gavel').addEventListener('click', (e) => {
-  strike(e.currentTarget, { sound: true, onImpact: () => {
+  strike(e.currentTarget, { onImpact: () => {
     toast(nextVerdict());
     const st = $('.portrait-stamp'); st.classList.remove('on'); void st.offsetWidth; st.classList.add('on');
     const p = $('#portrait'); p.classList.remove('shake'); void p.offsetWidth; p.classList.add('shake');
@@ -168,7 +145,7 @@ $('#hero-gavel').addEventListener('click', (e) => {
   document.fonts && document.fonts.ready.then(measure);
   (function loop(now) {
     const dt = Math.min(50, now - last); last = now;
-    x -= dt * 0.04; if (-x >= w) x += w;
+    x -= dt * 0.04 * (1 + (window.scrollBoost || 0)); if (-x >= w) x += w;
     tr.style.transform = `translateX(${x}px)`;
     requestAnimationFrame(loop);
   })(last);
@@ -219,7 +196,7 @@ function countUp(el) {
     if (e.isIntersecting && !started) { started = true; obs.disconnect(); bring(); }
   }, { threshold: 0.2 }).observe($('#cards'));
   rig.addEventListener('click', () => {
-    strike(rig, { sound: true, onImpact: () => {
+    strike(rig, { onImpact: () => {
       toast(nextVerdict());
       if (reduced) return;
       cards.filter((c) => c.classList.contains('landed')).forEach((c, i) =>
@@ -250,6 +227,115 @@ function countUp(el) {
   addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
   addEventListener('resize', update);
   update();
+})();
+
+/* ================= POLISH ================= */
+const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+// smooth, weighted scrolling (Lenis) + scroll velocity for the marquee
+(function smooth() {
+  if (reduced || !window.Lenis) return;
+  const lenis = new Lenis({ duration: 1.15, easing: (t) => 1 - Math.pow(1 - t, 4), smoothWheel: true });
+  window.lenis = lenis;
+  lenis.on('scroll', (e) => { window.scrollBoost = Math.min(6, Math.abs(e.velocity) * 0.12); });
+  (function raf(t) { lenis.raf(t); requestAnimationFrame(raf); })(performance.now());
+  $$('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => {
+    const t = $(a.getAttribute('href')); if (!t) return;
+    e.preventDefault(); lenis.scrollTo(t, { offset: a.getAttribute('href') === '#top' ? 0 : -40 });
+  }));
+  document.body.classList.contains('loading') && lenis.stop();
+  new MutationObserver(() => { if (!document.body.classList.contains('loading')) lenis.start(); })
+    .observe(document.body, { attributes: true, attributeFilter: ['class'] });
+})();
+
+// headings come in word by word, from a soft blur
+(function splitWords() {
+  $$('[data-split]').forEach((el) => {
+    let i = 0;
+    const walk = (node) => [...node.childNodes].forEach((n) => {
+      if (n.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        n.textContent.split(/(\s+)/).forEach((part) => {
+          if (!part) return;
+          if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+          const w = document.createElement('span'); w.className = 'w';
+          const inner = document.createElement('span'); inner.textContent = part; inner.style.setProperty('--i', i++);
+          w.appendChild(inner); frag.appendChild(w);
+        });
+        n.replaceWith(frag);
+      } else if (n.nodeType === 1) walk(n);
+    });
+    walk(el);
+    el.style.setProperty('--n', i);
+    io.observe(el);
+  });
+})();
+
+// soft custom cursor (desktop only)
+(function cursor() {
+  if (!finePointer || reduced) return;
+  const dot = document.createElement('div'), ring = document.createElement('div');
+  dot.className = 'cur-dot'; ring.className = 'cur-ring';
+  document.body.append(dot, ring); document.body.classList.add('has-cursor');
+  let x = innerWidth / 2, y = innerHeight / 2, rx = x, ry = y, shown = false;
+  addEventListener('pointermove', (e) => {
+    x = e.clientX; y = e.clientY;
+    if (!shown) { shown = true; rx = x; ry = y; document.body.classList.add('cur-on'); }
+  });
+  document.addEventListener('pointerleave', () => { shown = false; document.body.classList.remove('cur-on'); });
+  const hot = 'a,button,.card,.edu-item';
+  document.addEventListener('pointerover', (e) => ring.classList.toggle('hot', !!e.target.closest(hot)));
+  addEventListener('pointerdown', () => ring.classList.add('down'));
+  addEventListener('pointerup', () => ring.classList.remove('down'));
+  (function loop() {
+    rx += (x - rx) * 0.18; ry += (y - ry) * 0.18;
+    dot.style.transform = `translate(${x}px,${y}px)`;
+    ring.style.transform = `translate(${rx}px,${ry}px)`;
+    requestAnimationFrame(loop);
+  })();
+})();
+
+// spotlight + gentle tilt on cards
+(function cards() {
+  if (!finePointer || reduced) return;
+  $$('.card, .edu-item').forEach((c) => {
+    c.addEventListener('pointermove', (e) => {
+      const r = c.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+      c.style.setProperty('--mx', px * 100 + '%'); c.style.setProperty('--my', py * 100 + '%');
+      if (c.classList.contains('card') && !c.classList.contains('landed')) return;
+      c.style.transform = `perspective(900px) rotateX(${(0.5 - py) * 4}deg) rotateY(${(px - 0.5) * 5}deg) translateY(-4px)`;
+    });
+    c.addEventListener('pointerleave', () => { c.style.transform = ''; });
+  });
+})();
+
+// portrait: follows the pointer in 3D, with a moving sheen on the glass
+(function portraitTilt() {
+  const p = $('#portrait'), frame = $('.portrait-frame');
+  if (!p || !finePointer || reduced) return;
+  let tx = 0, ty = 0, cx = 0, cy = 0, on = true;
+  new IntersectionObserver(([e]) => (on = e.isIntersecting)).observe(p);
+  addEventListener('pointermove', (e) => { tx = e.clientX / innerWidth - 0.5; ty = e.clientY / innerHeight - 0.5; });
+  (function loop() {
+    if (on) {
+      cx += (tx - cx) * 0.06; cy += (ty - cy) * 0.06;
+      frame.style.transform = `perspective(1100px) rotateY(${cx * 9}deg) rotateX(${-cy * 7}deg)`;
+      frame.style.setProperty('--gx', 50 + cx * 120 + '%');
+    }
+    requestAnimationFrame(loop);
+  })();
+})();
+
+// buttons lean towards the pointer
+(function magnetic() {
+  if (!finePointer || reduced) return;
+  $$('.btn, .nav-cv').forEach((b) => {
+    b.addEventListener('pointermove', (e) => {
+      const r = b.getBoundingClientRect();
+      b.style.transform = `translate(${(e.clientX - r.left - r.width / 2) * 0.22}px, ${(e.clientY - r.top - r.height / 2) * 0.3}px)`;
+    });
+    b.addEventListener('pointerleave', () => { b.style.transform = ''; });
+  });
 })();
 
 runIntro();
