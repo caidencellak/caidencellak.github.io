@@ -5,25 +5,48 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /* ================= GAVEL ================= */
-const REST = 26, LIFT = 36, HIT = -3;
-function strike(rig, { onImpact, speed = 1 } = {}) {
-  const g = $('.gavel', rig);
+const REST = 26, LIFT = 38, HIT = -3;
+// a short wooden "knock", synthesised (only ever played after a click)
+let actx;
+function knock(vol = 0.5) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = actx.currentTime, len = 0.12;
+    const buf = actx.createBuffer(1, actx.sampleRate * len, actx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 6);
+    const n = actx.createBufferSource(); n.buffer = buf;
+    const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 1.4;
+    const g1 = actx.createGain(); g1.gain.value = vol;
+    n.connect(bp).connect(g1).connect(actx.destination); n.start(t);
+    const o = actx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(190, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.15);
+    const g2 = actx.createGain(); g2.gain.setValueAtTime(vol * 0.9, t); g2.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    o.connect(g2).connect(actx.destination); o.start(t); o.stop(t + 0.2);
+  } catch {}
+}
+function strike(rig, { onImpact, speed = 1, sound = false } = {}) {
+  const g = $('.gavel:not(.ghost)', rig), ghosts = $$('.gavel.ghost', rig);
   if (rig._busy) return rig._busy;
   rig._busy = new Promise((resolve) => {
     if (reduced) { onImpact && onImpact(); impact(rig); rig._busy = null; return resolve(); }
     const a1 = g.animate([{ transform: `rotate(${REST}deg)` }, { transform: `rotate(${LIFT}deg)` }],
-      { duration: 160 / speed, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' });
+      { duration: 170 / speed, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' });
     a1.onfinish = () => {
+      const dur = 110 / speed;
+      ghosts.forEach((gh, i) => gh.animate(
+        [{ transform: `rotate(${LIFT}deg)`, opacity: 0 }, { transform: `rotate(${(LIFT + HIT) / 2}deg)`, opacity: 0.28 - i * 0.12 }, { transform: `rotate(${HIT}deg)`, opacity: 0 }],
+        { duration: dur + 40, delay: 18 * (i + 1), easing: 'cubic-bezier(.6,0,1,.6)' }));
       const a2 = g.animate([{ transform: `rotate(${LIFT}deg)` }, { transform: `rotate(${HIT}deg)` }],
-        { duration: 110 / speed, easing: 'cubic-bezier(.6,0,1,.6)', fill: 'forwards' });
+        { duration: dur, easing: 'cubic-bezier(.6,0,1,.6)', fill: 'forwards' });
       a2.onfinish = () => {
+        if (sound) knock();
         impact(rig);
         onImpact && onImpact();
         const a3 = g.animate([
           { transform: `rotate(${HIT}deg)` }, { transform: `rotate(${HIT + 9}deg)`, offset: .3 },
           { transform: `rotate(${HIT + 4}deg)`, offset: .55 }, { transform: `rotate(${REST}deg)` }],
           { duration: 520 / speed, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'forwards' });
-        a3.onfinish = () => { rig._busy = null; resolve(); };
+        a3.onfinish = () => { a1.cancel(); a2.cancel(); a3.cancel(); rig._busy = null; resolve(); };
       };
     };
   });
@@ -111,7 +134,7 @@ function startHero() {
   document.addEventListener('pointerleave', () => (pointer = false));
   window.kickScales = (v = 3) => { vel += (Math.random() < .5 ? -1 : 1) * v; };
   let visible = true;
-  new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe($('#top'));
+  new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe($('#statement'));
   function frame(now) {
     if (visible) {
       const tgt = pointer ? target : Math.sin((now - t0) / 1400) * 5;
@@ -125,7 +148,11 @@ function startHero() {
 })();
 
 $('#hero-gavel').addEventListener('click', (e) => {
-  strike(e.currentTarget, { onImpact: () => { toast(nextVerdict()); window.kickScales && window.kickScales(4); } });
+  strike(e.currentTarget, { sound: true, onImpact: () => {
+    toast(nextVerdict());
+    const st = $('.portrait-stamp'); st.classList.remove('on'); void st.offsetWidth; st.classList.add('on');
+    const p = $('#portrait'); p.classList.remove('shake'); void p.offsetWidth; p.classList.add('shake');
+  } });
 });
 
 /* ================= MARQUEE ================= */
@@ -192,7 +219,7 @@ function countUp(el) {
     if (e.isIntersecting && !started) { started = true; obs.disconnect(); bring(); }
   }, { threshold: 0.2 }).observe($('#cards'));
   rig.addEventListener('click', () => {
-    strike(rig, { onImpact: () => {
+    strike(rig, { sound: true, onImpact: () => {
       toast(nextVerdict());
       if (reduced) return;
       cards.filter((c) => c.classList.contains('landed')).forEach((c, i) =>
