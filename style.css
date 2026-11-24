@@ -98,6 +98,9 @@ h2{font:600 13px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;col
 .list li{margin:5px 0;padding-left:2px}
 .list li::marker{color:var(--line2)}
 .list b{color:var(--ink);font-weight:600}
+.list a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px;transition:color .2s,text-decoration-color .2s}
+.list a:hover{color:var(--accent);text-decoration-color:var(--accent)}
+.list cite{font-style:italic}
 
 /* research */
 .feature{display:block;text-decoration:none;padding:24px 26px;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin-bottom:26px;
